@@ -8,33 +8,47 @@
 
 class Config: # class'd for ease of access
 
-    #####   SYSTEM OPTIONS 
-    #####    - purely programmatic and interface options
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    '''''   SYSTEM OPTIONS 
+            purely programmatic and interface options
+    '''''
 
     VISUALIZATION = False # for interactive or for bulk-processing modes
     PLOTTING_SMOOTHING = 10
 
-    SAVE_LOGS = False
-    DEBUG=False
+    SAVE_LOGS = True
+    ALT_SAVE_DIR = None
+    DEBUG = False
 
     _DEVICE = '/device:GPU:0' # desktop
     _DEVICE = '/cpu:0' # laptop
     
+    # @ tensorflow:
+    SCOPE = None # True default value. Use string [stub: keywords]
+    REUSE = 'default'
 
-    #####   EXPERIMENT OPTIONS 
-    #####    - identify and build the unique experiment
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    '''''   EXPERIMENT OPTIONS 
+            identify and build the unique experiment
+    '''''
+
     GAME_NAME = 'gould-card-1'
     # GAME_NAME: what ID'd environment is being experienced.
     # Curriculum orderings are implicit. options: 'r-u' 'r-u-ru'
 
-
-    CENTRISM = 'forked' # options: 'egocentric'  'allocentric'  'forked'
+    CENTRISM = 'choose-mixed' #'forked' 
+    # ^ options: 'egocentric'  'allocentric'  'forked', 'choose-mixed'
     ACTION_MODE = 'card' # vs. rotational
 
     CURRICULUM_NAME = 'FLAT'
-    # options: 'FLAT' (0 param), 'STEP' (1 param), 'GRADUAL' (2 param)
-    CURRICULUM_PARAM_1 = -1
-    CURRICULUM_PARAM_2 = -1
+    # options: 'FLAT' (0 param), 'STEP' (1 param), 'GRADUAL' (2 param),
+    # 'FLAT:0.5', ...    See optimization options information block
+    CURRICULUM_PARAM_1 = None
+    CURRICULUM_PARAM_2 = None
 
     DONE_MODE = 'epochs' # cp 'score'
     #DONE_SCORE = 0.96 # score needed to be considered 'learned'
@@ -44,17 +58,38 @@ class Config: # class'd for ease of access
     TEST_FREQ = 10 # orig: 10
     TEST_SAMPLE_SIZE = 10
 
-    SET_RANDOM_SEED= True # DO not change without changing custom_models
+    #SET_RANDOM_SEED= True # DO not change without changing custom_models
+    SET_SEED_MANUALLY = False
+    SEED = None
 
-    NETWORK = 'stub: identify the network topology.'
+    NETWORK = None #  identify the network topology via keyword.
+    TRIAL_COUNTER = 'stub' # iterate this for multitrials, with a config
+#                   varying tool
 
-    #####   OPTIMIZATION OPTIONS 
-    #####    - hyperparameters to improve an experiment's success
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    '''   OPTIMIZATION OPTIONS 
+          hyperparameters to improve an experiment's success
     
+    
+    Info for parameters that are not self-explanatory:
+        envir/TASK_ENVIRONMENT is the 'task' made up of 'challenges'
+        curr/CURRICULUM is the task_envir-dependent curriculum scheme.
+            param for FLAT is the pct of r and u trials; 1-param is ru chance
+        expl/EXPLORATION_SCHEDULE is the epsilon exploration chance
+
+        expl and curr formatted as:
+            [FLAT]:[float in (0,1) for const. epsilon exploration]
+            [LINEAR-1]:[start %]:[end %]:[n steps interpolated to end]
+            [STEP-1]:[start %]:[end %]:[epoch]
+            Note linear is only, at present, able to interpolate from 0.
+    '''
     MAX_NUM_ACTIONS = 4
     #MAX_NUM_EPISODES = 2e3  <- see DONE_EPOCHS etc
     LEARNING_RATE = 1e-4 # or, indicate a schedule
-    EPSILON_EXPLORATION = 8e-1 # or, indicate a schedule
+    EPSILON_EXPLORATION = 8e-1 # or, indicate a schedule; such as 'FLAT:0.5',
+    # 'FLAT:0.8', 'linear-1:1.0:0.2:250', ...
     OPTIMIZER = ['adam', 1e-6]
     LOSS_FUNCTION = 'huber3e-5'
     EPSILON = 1.0
@@ -62,4 +97,15 @@ class Config: # class'd for ease of access
     NO_REWARD = 0.0
     INVALID_REWARD = 0.0
     GAMMA = 0.9
+    
+
+    ''' 
+    interim default parameters, before a network-config-populator
+    is ready. '''
+
+    LAYER_NORM = True # layerwise norm: see tf.contrib.layers.layer_norm
+    DROPOUT = 0.5
+    LAYER_ACTIVATIONS = None # implementation stub! no activations.
+    # depends on q: activate before or after [dropout,norm,etc]?
+    FINAL_ACTIVATION = 'tanh'
     

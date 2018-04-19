@@ -7,19 +7,21 @@ smoother from the very start. See README and commit messages for more info.
 
 #sys.path.append('./baselines/common/')
 
-
+from __future__ import print_function
+from environment import PathEnv, pr_st, print_state, ExpAPI # convenience
+from environment import *
 import itertools
-import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
-import sys, time, datetime, os
-from PathfinderEnv import PathEnv, pr_st, print_state
-from expenv import ExpAPI
+import sys, time, os
+from datetime import datetime
+import os, shutil
 
 from Config import Config
 
 #def model(inpt, num_actions, scope, reuse=False):
-#    print('~!~!~!~!~!~!~!~ Model made here. inpt,num_actions:', inpt, inpt.shape, num_actions)
+#    print('~!~!~!~!~!~!~!~ Model made here. inpt,num_actions:', \
+#       inpt, inpt.shape, num_actions)
 #    """This model takes as input an observation and returns values of all actions."""
 #    with tf.variable_scope(scope, reuse=reuse):
 #        out = inpt
@@ -223,7 +225,7 @@ def _run_expt(envir, centrism, seed, dest, expl, curr, repr_seed, done_score, \
 
     if Config.SAVE_LOGS == True:
         results_outputfile_name = os.path.join(dest,\
-                    'res-'+ str(datetime.datetime\
+                    'res-'+ str(datetime\
                     .now().strftime("%H_%M_%S"))+'--'+\
                     str(envir)+'--'+str(centrism)+'.txt')
 
@@ -239,6 +241,7 @@ def _run_expt(envir, centrism, seed, dest, expl, curr, repr_seed, done_score, \
 def run_single_expt(config_inp=None):
     # This function is isolated out to encourage the following workflow:
     # for each experiment, set Config file, and call this 'monolithically'
+    assert(not config_inp == None)
     _run_expt(  envir = config_inp.GAME_NAME,   \
                 curr = config_inp.CURRICULUM,   \
                 dest = config_inp.OUTPUT_DIRECTORY,  \
@@ -252,73 +255,64 @@ def run_single_expt(config_inp=None):
                 trial_counter = config_inp.TRIAL_COUNTER,
                 ) 
 
-if __name__ == '__main__':
-    for s in [0,1]:
-        Config.SEED = s
-        run_single_expt(Config)
-import custom_deepq
-from Config import Config
-from datetime import datetime
-import os, shutil
+def new_run_exp_save( c, fout ):
+    val=30
+    from  string import ljust
+    s = ' '.join([ljust(s_,val) for s_ in [k+':'+str(v) for k,v in c.__dict__.iteritems() if not k[:2]=='__']])
+    itr=0
+    print('questionable process:')
+    import textwrap
+    for si in textwrap.fill(s, 3*val):
+        while not len(si)%val==1:
+            si += ' '
+        print(si, end='')
+        continue
+        print(si, end='', file=fout)
+        itr += 1
+        if itr>60 and si==' ':
+            if itr==0: pass
+            else:
+                itr=0
+                print('\n', end='', file=fout)
 
-# Setup save directories and store settings, etc
-if Config.SAVE_LOGS:
-    output_directory = './result_logs/result_logs_'+datetime.now()\
-            .strftime('%m-%d-%y_%H%M%S')+'/'
-    os.makedirs(output_directory)
-    shutil.copyfile("./launch_experiment.py", \
-            output_directory+'launch_experiment--generator.py')
-    shutil.copyfile("./Config.py", \
-            output_directory+'Config--generator.py')
 
-    Config.OUTPUT_DIRECTORY = output_directory
-else:
-    print ("NOTICE: SAVE_LOGS is off and no results are being saved.")
-    Config.OUTPUT_DIRECTORY = None
+def new_launch_expt(config):
+    c=config
 
-'''
-Info for parameters that are not self-explanatory:
-    envir/TASK_ENVIRONMENT is the 'task' made up of 'challenges'
-    curr/CURRICULUM is the task_envir-dependent curriculum scheme.
-        param for FLAT is the pct of r and u trials; 1-param is ru chance
-    expl/EXPLORATION_SCHEDULE is the epsilon exploration chance
+    # Input handle:
+    assert(c.GAME_NAME in ['r-u', 'r-u-ru', 'gould-card-1'])
+    if c.CENTRISM=='forked': c.centrism = 'choose-mixed'
+    assert(c.CENTRISM in ['allocentric', 'egocentric','choose-mixed'])
+    assert(c.ACTION_MODE in ['card', 'rot'])
 
-    expl and curr formatted as:
-        [FLAT]:[float in (0,1) for const. epsilon exploration]
-        [LINEAR-1]:[start %]:[end %]:[n steps interpolated to end]
-        [STEP-1]:[start %]:[end %]:[epoch]
-        Note linear is only, at present, able to interpolate from 0.
-'''
-trial_counter = 0
-##################################################
-# Only change code below this line for experiments.  
-'''
-for envir in ['r-u-ru']:
- for cent in ['egocentric','allocentric']:
-  for curr in ['LINEAR-1:1.0:0.2:500', 'STEP-1:1.0:0.2:250', 'FLAT:0.2']:
-   for seed in range(40):
-    for expl in ['FLAT:0.5']:
-     for actn in ['card','rot']:
-      for mna in [-1,2]:
-'''
-for envir in ['r-u-ru']:
- for cent in ['choose-mixed']:
-  for curr in ['FLAT:0.5']:
-    for expl in ['FLAT:0.5']:
-     for actn in ['card']:
-      for mna in [2]:
-# Only change code above this line for experiments.  
-##################################################
-    #for expl in ['flat:0.5','flat:0.8','linear-1:1.0:0.2:250']:
+    # Setup saving:
+    if c.SAVE_LOGS:
+        output_directory = './result_logs/result_logs_'+datetime.now()\
+                .strftime('%m-%d-%y_%H%M%S')+'/'
+        if c.ALT_SAVE_DIR: output_directory = c.ALT_SAVE_DIR
+        c.OUTPUT_DIRECTORY = output_directory
+        os.makedirs(output_directory)
+#        shutil.copyfile("./launch_expt.py", \
+#                output_directory+'launch_expt--generator.py')
+        shutil.copyfile("./Config.py", \
+                output_directory+'Config--generator.py')
 
-                Config.GAME_NAME = envir
-                Config.MAX_NUM_ACTIONS = mna
-                Config.CURRICULUM = curr
-                Config.ACTION_MODE = actn
-                Config.EXPLORATION_SCHEDULE = expl
-                Config.CENTRISM = cent
-                Config.SEED = seed
-                Config.TRIAL_COUNTER = trial_counter
-                trial_counter += 1
-                custom_deepq.run_single_expt(Config)
+        results_outputfile_name = os.path.join(output_directory,\
+                    'res-'+ str(datetime\
+                    .now().strftime("%H_%M_%S"))+'--'+\
+                    str(c.GAME_NAME)+'--'+str(c.CENTRISM)+'.txt')
+
+        with open(results_outputfile_name, 'w') as fout:
+            new_run_exp_save( c, fout=fout )
+    else:
+        print ("NOTICE: SAVE_LOGS is off and no results are being saved.")
+        c.OUTPUT_DIRECTORY = None
+        new_run_exp_save( c, fout=sys.stdout )
+
+
+if __name__=='__main__':
+    # Run single trial
+    Config.TRIAL_COUNTER = '-'
+    #custom_deepq.run_single_expt(Config)
+    new_launch_expt(Config)
 

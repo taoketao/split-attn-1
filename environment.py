@@ -8,6 +8,9 @@ import sys, os, random, time
 #from templates import *
 import numpy as np
 from scipy.sparse import coo_matrix
+import tensorflow as tf
+import tensorflow.contrib.layers as layers
+
 from Config import Config
 
 if __name__=='__main__': print('Loading custom resources...',time.asctime())
@@ -1476,3 +1479,214 @@ class PathEnvAuto(PathEnv):
             PathEnv.__init__(self, ExpAPI(Config.GAME_NAME, Config.CENTRISM))
         except:
             raise Exception()
+                       
+                                          
+
+                       
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#
+#
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# [formerly custom_models.py]
+'''
+This module describes some network topologies. They are connected to
+especially openai's gym, which however we are not using anymore.
+'''
+
+
+
+## this isn't working...   kept for reference
+#def _orig_pf(inpt, num_actions, scope, seed=False, reuse=False):
+#    with tf.variable_scope(scope, reuse=reuse):
+#            if seed: 
+#                scope.reuse_variables()
+#                tf.reset_default_graph()
+#                tf.set_random_seed(seed)
+#                print( tf.get_seed)
+#            out = inpt
+#            out = layers.fully_connected(out, num_outputs=64)
+#            out = tf.nn.relu(out)
+#            out = tf.nn.dropout(out, 0.5)
+#            out = layers.fully_connected(out, num_outputs=num_actions)
+#            out = tf.nn.tanh(out)
+#            return out
+#
+##def original_pathfinder_model(seed=None):
+##    """This model is a recreation, as close as possible, to the original 
+##    networks used for the results in Pathfinding Navigation.
+##
+##    Parameters
+##    ----------
+##    None. 
+##
+##    Returns
+##    -------
+##    q_func: function
+##        q_function for DQN algorithm.
+##    """
+##    return lambda *args, **kwargs: _mlp(hiddens=[64], seed=seed, *args, **kwargs)
+#
+    
+
+def original_pathfinder_model(config):
+    """This model is a recreation, as close as possible, to the original 
+    networks used for the results in Pathfinding Navigation.
+
+    Parameters
+    ----------
+    None. 
+
+    Returns
+    -------
+    function which takes as arguments (input_var, config, **kwargs)
+    """
+#    def _mlp_custom(hiddens, inpt, num_actions, scope, seed_int, \
+#                    reuse=tf.AUTO_REUSE, layer_norm=False,config=None):
+#        with tf.variable_scope(scope, reuse=reuse):
+#            with tf.device(config._DEVICE): # Require a config!
+#                tf.set_random_seed(seed_int)
+#                out = tf.contrib.layers.flatten(inpt)
+#                for hidden in hiddens:
+#                    out = layers.fully_connected(out, num_outputs=hidden)
+#                    out = tf.nn.dropout(out, 0.5)
+#                    if layer_norm:
+#                        out = layers.layer_norm(out, center=True, scale=True)
+#                q_out = layers.fully_connected(out, num_outputs=num_actions,\
+#                            activation_fn=tf.nn.tanh)
+#                return q_out
+#
+    def _mlp_custom(inpt, c):
+        if c.REUSE=='default': c.REUSE = tf.AUTO_REUSE
+        with tf.variable_scope(c.scope, reuse=reuse):
+            with tf.device(c._DEVICE):
+                if c.SET_SEED_MANUALLY: tf.set_random_seed(c.SEED)
+                out = tf.contrib.layers.flatten(inpt)
+                for hidden in c.hiddens:
+                    out = layers.fully_connected(out, num_outputs=hidden)
+                    if c.DROPOUT: out = tf.nn.dropout(out, c.DROPOUT)
+                    if layer_norm: out = layers.layer_norm(\
+                            out, center=True, scale=True)
+                out = layers.fully_connected(out, num_outputs=c.MAX_NUM_ACTIONS,\
+                                activation_fn=c.FINAL_ACTIVATION)
+                return out
+                                                       
+    c=config
+    if not c.NETWORK: c.hiddens=[64]
+    return lambda *args, **kwargs: _mlp_custom(c=c, *args, **kwargs)
+
+# alias:
+mlp = original_pathfinder_model
+
+#def _decider_mlp(hiddens, inpt_list, num_actions, scope, seed_int, \
+#                reuse=tf.AUTO_REUSE, layer_norm=False,config=None):
+#    assert(len(hiddens[0])==len(inpt_list))
+#    for nth_layer in range(len(hiddens)-1):
+#        assert(len(hiddens[i+1]) <= len(hiddens[i]))
+#        # TODO: update this for arbitrary models
+#    with tf.variable_scope(scope, reuse=reuse):
+#        with tf.device(config._DEVICE): # Require a config!
+#            tf.set_random_seed(seed_int)
+#            out = tf.contrib.layers.flatten(inpt)
+#            for hidden in hiddens:
+##                out = layers.fully_connected(out, num_outputs=hidden,\
+##                        activation_fn=None)
+##                out = tf.nn.relu(out)
+#                out = layers.fully_connected(out, num_outputs=hidden)
+#                out = tf.nn.dropout(out, 0.5)
+#                if layer_norm:
+#                    out = layers.layer_norm(out, center=True, scale=True)
+##            q_out = layers.fully_connected(out, num_outputs=num_actions,\
+##                        activation_fn=None)
+##            q_out = tf.nn.tanh(q_out)
+#            q_out = layers.fully_connected(out, num_outputs=num_actions,\
+#                        activation_fn=tf.nn.tanh)
+#            return q_out
+#
+#def decider_double_model(seed=None, config=None):
+#    hiddens=[ (64,64), (32,) ]
+##    if not 'scope' in *kwargs.keys(): 
+##        print (kwargs)
+##        kwargs['scope'] = str(seed
+#    return lambda *args, **kwargs: _decider_mlp(hiddens, config=config, seed_int=int(seed), *args, **kwargs)
+#
+#
+#def mlp(hiddens=[], layer_norm=False):
+#    """This model takes as input an observation and returns values of all actions.
+#
+#    Parameters
+#    ----------
+#    hiddens: [int]
+#        list of sizes of hidden layers
+#
+#    Returns
+#    -------
+#    q_func: function
+#        q_function for DQN algorithm.
+#    """
+#    return lambda *args, **kwargs: _mlp(hiddens, layer_norm=layer_norm, *args, **kwargs)
+#
+#
+#def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, scope, reuse=False, layer_norm=False):
+#    with tf.variable_scope(scope, reuse=reuse):
+#        out = inpt
+#        with tf.variable_scope("convnet"):
+#            for num_outputs, kernel_size, stride in convs:
+#                out = layers.convolution2d(out,
+#                                           num_outputs=num_outputs,
+#                                           kernel_size=kernel_size,
+#                                           stride=stride,
+#                                           activation_fn=tf.nn.relu)
+#        conv_out = layers.flatten(out)
+#        with tf.variable_scope("action_value"):
+#            action_out = conv_out
+#            for hidden in hiddens:
+#                action_out = layers.fully_connected(action_out, num_outputs=hidden, activation_fn=None)
+#                if layer_norm:
+#                    action_out = layers.layer_norm(action_out, center=True, scale=True)
+#                action_out = tf.nn.relu(action_out)
+#            action_scores = layers.fully_connected(action_out, num_outputs=num_actions, activation_fn=None)
+#
+#        if dueling:
+#            with tf.variable_scope("state_value"):
+#                state_out = conv_out
+#                for hidden in hiddens:
+#                    state_out = layers.fully_connected(state_out, num_outputs=hidden, activation_fn=None)
+#                    if layer_norm:
+#                        state_out = layers.layer_norm(state_out, center=True, scale=True)
+#                    state_out = tf.nn.relu(state_out)
+#                state_score = layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+#            action_scores_mean = tf.reduce_mean(action_scores, 1)
+#            action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, 1)
+#            q_out = state_score + action_scores_centered
+#        else:
+#            q_out = action_scores
+#        return q_out
+#
+#
+#def cnn_to_mlp(convs, hiddens, dueling=False, layer_norm=False):
+#    """This model takes as input an observation and returns values of all actions.
+#
+#    Parameters
+#    ----------
+#    convs: [(int, int int)]
+#        list of convolutional layers in form of
+#        (num_outputs, kernel_size, stride)
+#    hiddens: [int]
+#        list of sizes of hidden layers
+#    dueling: bool
+#        if true double the output MLP to compute a baseline
+#        for action scores
+#
+#    Returns
+#    -------
+#    q_func: function
+#        q_function for DQN algorithm.
+#    """
+#
+#    return lambda *args, **kwargs: _cnn_to_mlp(convs, hiddens, dueling, layer_norm=layer_norm, *args, **kwargs)
+#
