@@ -5,7 +5,6 @@ experiment managers, and wrappers for mass loading into new scripted
 process experiments.
 '''
 import sys, os, random, time
-#from templates import *
 import numpy as np
 from scipy.sparse import coo_matrix
 import tensorflow as tf
@@ -77,6 +76,162 @@ ARR=0; FLIPLR=1; FLIPUD=2; ROT90=3; ROT180=4; XSZ=5; YSZ=6; ALOC=7; GLOC=8;
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# [formerly templates.py]
+
+'''     Template guide: 
+            x   =   immobile block
+            m   =   mobile block
+            .   =   empty space
+            a   =   an agent starting place
+            !   =   goal
+            h   =   hidden immobile block
+            r   =   end line
+            e   =   end map
+            o   =   start options list, after e
+            D   =   'dirt': place mobile blocks over all '!' locs
+            *   =   'cross': cross each agent location by each goal location
+'''
+
+TEMPLATE_GOULD_TRAIN_1 =  '''\
+            . x !         r
+            I h .         r
+            . x .         r
+            . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_2 =  '''\
+            . x !         r
+            I . .         r
+            . x .         r
+            . h .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_3 =  '''\
+            . x .         r
+            I . .         r
+            . x !         r
+            . h .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_4 =  '''\
+            . x .         r
+            I h .         r
+            . x !         r
+            . . .         e
+                        o: *  '''
+#  Who has advantage, ego or allo?
+# ability:      1,3: same. 1,4: allo. 2,3: same. 2,4: allo.
+# optimality:   1,3: allo. 1,4:[allo] 2,3: same. 2,4:[allo]
+
+TEMPLATE_GOULD_TRAIN_5 =  '''\
+            . x !         r
+            . h .         r
+            . x .         r
+            I . .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_6 =  '''\
+            . x !         r
+            . . .         r
+            . x .         r
+            I h .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_7 =  '''\
+            . x .         r
+            . . .         r
+            . x !         r
+            I h .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_8 =  '''\
+            . x .         r
+            . h .         r
+            . x !         r
+            I . .         e
+                        o: *  '''
+#  Who has advantage, ego or allo?
+# ability:    1,5: same. 1, ....
+# optimality: 1,3: same. 
+                        
+#################################################
+
+TEMPLATE_GOULD_TRAIN_1 =  '''\
+            . . .         r
+            . x !         r
+            I h .         r
+            . x .         r
+            . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_2 =  '''\
+            . h .         r
+            . x !         r
+            I . .         r
+            . x .         r
+            . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_3 =  '''\
+            . h .         r
+            . x .         r
+            I . .         r
+            . x !         r
+            . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_TRAIN_4 =  '''\
+            . . .         r
+            . x .         r
+            I h .         r
+            . x !         r
+            . . .         e
+                        o: *  '''
+# allo @ 1+2. allo @ 2+3. allo @ 1+4. allo @ 1+3
+
+
+
+TEMPLATE_TSE = ''' x x x x x x x x x x x  r
+                   x x x x x a x x x x x  r
+                   x x . . . . . . . x x  r
+                   x x . ! . . . . ! x x  r
+                   x x . . . . ! . . x x  r
+                   x a . . . . . . . a x  r
+                   x x . . ! . . . . x x  r
+                   x x ! . . . . ! . x x  r
+                   x x . . . . . . . x x  r
+                   x x x x x a x x x x x  r
+                   x x x x x x x x x x x  e
+        o: D, *  
+                   '''
+
+TEMPLATE_R_U =    '''   x x x x x x x  r
+                        x m m m m m x  r
+                        x m . ! . m x  r
+                        x m . a ! m x  r
+                        x m . . . m x  r
+                        x m m m m m x  r
+                        x x x x x x x  e
+                o:  *    '''
+
+TEMPLATE_RU =    '''    x x x x x x x  r
+                        x m m m m m x  r
+                        x m . . ! m x  r
+                        x m . a . m x  r
+                        x m . . . m x  r
+                        x m m m m m x  r
+                        x x x x x x x  e
+                o:  *    '''
+TEMPLATE_R_U_RU =    '''    x x x x x x x  r
+                        x m m m m m x  r
+                        x m . ! ! m x  r
+                        x m . a ! m x  r
+                        x m . . . m x  r
+                        x m m m m m x  r
+                        x x x x x x x  e
+                o:  *    '''
+
+TEMPLATE_GOULD_1 =  ''' . . . r
+                        . h * r
+                        I . . r
+                        . h * r
+                        . . . e
+                o: *  '''
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -290,9 +445,9 @@ class environment_handler3(object):
     '''
     def __init__(self, gridsize, action_mode, card_or_rot, \
             default_agent_dir=NORTH, default_world_dir=NORTH,\
-            world_fill='roll'):
+            world_fill='roll', expt_name = None):
         self.gridsz = gridsize;
-        assert(gridsize[0]==gridsize[1])
+        assert(gridsize[0]==gridsize[1] or expt_name == 'gould-card-1')
         if 'egocentric'==action_mode and not world_fill in ['O','I','roll']:
             raise Exception("Please provide a valid fill for this environment"\
                             +"that facilitates map shifting.")
@@ -1037,17 +1192,20 @@ class ExpAPI(environment_handler3):
         ''' 
         environment_handler3.__init__(self, gridsize = \
                 { 'tse2007': (11,11), 'r-u': (7,7), 'ru': (7,7), \
-                'r-u-ru': (7,7) }[experiment_name], \
-                action_mode = centr, card_or_rot=card_or_rot   )
+                'r-u-ru': (7,7), 'gould-card-1':(5,3) }[experiment_name], \
+                action_mode = centr, card_or_rot=card_or_rot, expt_name = \
+                experiment_name)
         self.centr = centr
         self.card_or_rot = card_or_rot
         self.state_gen = state_generator(self.gridsz)
         self.start_states = []
-        self._set_starting_states({\
-                'tse2007':TEMPLATE_TSE, \
-                'r-u-ru': TEMPLATE_R_U_RU, \
-                'r-u': TEMPLATE_R_U, \
-                }[experiment_name], debug)
+        if not experiment_name=='gould-card-1':
+            self._set_starting_states({\
+                    'tse2007':TEMPLATE_TSE, \
+                    'r-u-ru': TEMPLATE_R_U_RU, \
+                    'r-u': TEMPLATE_R_U, \
+                    }[experiment_name], debug)
+        else:pass
         self.experiment_name = experiment_name
 
     def _find_all(self, a_str, char):
@@ -1690,3 +1848,52 @@ mlp = original_pathfinder_model
 #
 #    return lambda *args, **kwargs: _cnn_to_mlp(convs, hiddens, dueling, layer_norm=layer_norm, *args, **kwargs)
 #
+
+
+
+
+# originally from templates.py:
+#'''   Printing legend for condensed mode:
+#    !  agent and goal       I  agent        -  immobile
+#    @  goal and mobile      *  goal         o  mobile
+#    <space>  empty          #  ERROR                        '''
+#
+#X,Y=0,1
+## Warning: this function got all screwed up when copy-pasted.
+#def print_state(start_state, mode, print_or_ret='print'):
+#    S = ''
+#    if type(start_state)==np.ndarray:
+#        st = start_state
+#    else:
+#        st = start_state['state']
+#        S += str(mode+':')
+#    if mode=='matrices':
+#        for i in range(st.shape[-1]):
+#            S += str(st[:,:,i])
+#    if mode=='condensed':
+#        for y in range(st.shape[Y]):
+#            for x in range(st.shape[X]):
+#                if st[x,y,goalLayer] and st[x,y,agentLayer]: 
+#                    S += str('!')
+#                elif st[x,y,agentLayer]: 
+#                    S += str('I')
+#                elif st[x,y,goalLayer] and st[x,y,mobileLayer]:
+#                    S += str('@')
+#                elif st[x,y,goalLayer]: 
+#                    S += str('*')
+#                elif st[x,y,immobileLayer]: 
+#                    S += str('-')
+#                elif st[x,y,mobileLayer]: 
+#                    S += str('o')
+#                elif 0==np.sum(st[x,y,:]): 
+#                    S += str(' ')
+#                else: 
+#                    S += str('#')
+#                    print(S)
+#                # raise Exception("Error")
+#            S += str('\n')
+#    if not type(start_state)==np.ndarray:
+#        S += str("Flavor signal/goal id: ", start_state['flavor signal'])
+#
+#    if print_or_ret=='print': print(S)
+#    else: return S

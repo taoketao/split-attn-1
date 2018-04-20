@@ -20,10 +20,24 @@ class Config: # class'd for ease of access
 
     SAVE_LOGS = True
     ALT_SAVE_DIR = None
-    DEBUG = False
+    DEBUG = False # what, specifically???
 
+    MACHINE = 'unspecif' # or laptop or desktop
+    # Desktop options
     _DEVICE = '/device:GPU:0' # desktop
+    _NCORESMAX = 5
+    # Laptop options
     _DEVICE = '/cpu:0' # laptop
+    _NCORESMAX = 2
+    # Unspecif options
+    _DEVICE = None 
+    _NCORESMAX = 1
+
+    _LOG_DEVICE_PLACEMENT = False # debug..?
+    _GPU_ALLOW_GROWTH = True
+    _GPU_FRACTION = 0.8
+    _MAXNTHREADS = 8
+    
     
     # @ tensorflow:
     SCOPE = None # True default value. Use string [stub: keywords]

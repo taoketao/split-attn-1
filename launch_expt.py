@@ -8,7 +8,7 @@ smoother from the very start. See README and commit messages for more info.
 #sys.path.append('./baselines/common/')
 
 from __future__ import print_function
-from environment import PathEnv, pr_st, print_state, ExpAPI # convenience
+from environment import PathEnv, pr_st, print_state, ExpAPI, mlp # convenience
 from environment import *
 import itertools
 import tensorflow as tf
@@ -16,6 +16,8 @@ import tensorflow.contrib.layers as layers
 import sys, time, os
 from datetime import datetime
 import os, shutil
+from  string import ljust
+import textwrap
 
 from Config import Config
 
@@ -210,70 +212,63 @@ def run_exp_save(envir, centrism, seed, dest, expl, curr, repr_seed, \
             if mode_te_tr=='test' and Config.DEBUG:
                 print( '\t',len(testing_results))
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# new experiment launch scripts, adapted from ones above.
 
-def _run_expt(envir, centrism, seed, dest, expl, curr, repr_seed, done_score, \
-                    trial_counter, actn, mna):
-    assert(envir in ['r-u', 'r-u-ru'])
-    assert(centrism in ['allocentric', 'egocentric','choose-mixed'])
-    assert(actn in ['card', 'rot']) # don't compare these across steps
-#    results_outputfile_name = './result_logs/res-'+\
-#                        str(time.gmtime().tm_mon)+'-'+\
-#                        str(time.gmtime().tm_mday)+'-'+\
-#                        str(time.gmtime().tm_hour)+'-'+\
-#                        str(time.gmtime().tm_min)+'-'+\
-#                        str(envir)+'-'+str(centrism)+'.txt'
-
-    if Config.SAVE_LOGS == True:
-        results_outputfile_name = os.path.join(dest,\
-                    'res-'+ str(datetime\
-                    .now().strftime("%H_%M_%S"))+'--'+\
-                    str(envir)+'--'+str(centrism)+'.txt')
-
-        with open(results_outputfile_name, 'w') as fout:
-            run_exp_save( envir, centrism, seed, dest, expl, curr, repr_seed,\
-                          done_score, trial_counter, actn, mna, fout=fout)
-    else:
-        run_exp_save( envir, centrism, seed, dest, expl, curr,\
-                  repr_seed, done_score, trial_counter, actn, mna, fout=None)
-
-
-
-def run_single_expt(config_inp=None):
-    # This function is isolated out to encourage the following workflow:
-    # for each experiment, set Config file, and call this 'monolithically'
-    assert(not config_inp == None)
-    _run_expt(  envir = config_inp.GAME_NAME,   \
-                curr = config_inp.CURRICULUM,   \
-                dest = config_inp.OUTPUT_DIRECTORY,  \
-                actn = config_inp.ACTION_MODE,  \
-                expl = config_inp.EXPLORATION_SCHEDULE,  \
-                centrism = config_inp.CENTRISM,  \
-                seed = config_inp.SEED, \
-                repr_seed = config_inp.SET_RANDOM_SEED, \
-                done_score = config_inp.DONE_SCORE, \
-                mna = config_inp.MAX_NUM_ACTIONS, \
-                trial_counter = config_inp.TRIAL_COUNTER,
-                ) 
-
-def new_run_exp_save( c, fout ):
-    val=30
-    from  string import ljust
-    s = ' '.join([ljust(s_,val) for s_ in [k+':'+str(v) for k,v in c.__dict__.iteritems() if not k[:2]=='__']])
+def new_run_exp_save( c, fout, replay_buf=False ):
+    # dump parameters for output: 
+    _val=30
+    s = ' '.join([ljust(s_,_val) for s_ in [k+':'+str(v) for k,v \
+                  in c.__dict__.iteritems() if not k[:2]=='__']])
     itr=0
     print('questionable process:')
-    import textwrap
-    for si in textwrap.fill(s, 3*val):
-        while not len(si)%val==1:
-            si += ' '
+    for si in textwrap.fill(s, 3*_val):
+        while not len(si)%_val==1: si += ' '
         print(si, end='')
-        continue
-        print(si, end='', file=fout)
-        itr += 1
-        if itr>60 and si==' ':
-            if itr==0: pass
-            else:
-                itr=0
-                print('\n', end='', file=fout)
+
+    # tensorflow config -- all needs to be spot checked for option 'upgrades'
+    cproto = tf.ConfigProto()
+    cproto.log_device_placement = Config._LOG_DEVICE_PLACEMENT
+    cproto.inter_op_parallelism_threads = Config._MAXNTHREADS
+    cproto.intra_op_parallelism_threads = Config._MAXNTHREADS
+    if Config.MACHINE=='desktop':
+        cproto.gpu_options.allow_growth = Config._GPU_ALLOW_GROWTH
+        cproto.gpu_options.per_process_memory_fraction = Config._GPU_FRACTION
+
+    with tf.Session(config = cproto ) as sess:
+        env = PathEnv(ExpAPI(c.GAME_NAME, c.CENTRISM, card_or_rot = \
+                    c.ACTION_MODE))
+        sess.run(tf.global_variables_initializer)
+        try: assert(c.CENTRISM) in ['choose-mixed']
+        except: raise Exception(c.CENTRISM+"centrism isn't supported! stub")
+        model = mlp(Config) # for now...
+
+# .... stub left off
+
+        episode_rewards = [0]
+        testing_results = [0]
+        num_actions_taken = [0]
+        # 4/19/18: due to immense utility of reset-act-etc openai framework,
+        # initial thought says make it like that.
+        obs = env.reset(t=0, curr=curr, test_train='train')
+        if Config.DEBUG:
+            print(type(obs))
+            print_state(obs)
+        mode_te_tr = 'train'
+        test_t=train_t=0
+        is_solved=is_episode_completed=False
+
+
+        for t in itertools.count():
+            if Config.DONE_MODE == 'epochs' and t > Config.DONE_EPOCHS:
+                break
+            # Take action and update exploration to the newest value
+            if mode_te_tr=='train': train_t += 1
+            elif mode_te_tr=='test': test_t += 1
+# .... stub left off
+        print('sanity: done')
 
 
 def new_launch_expt(config):

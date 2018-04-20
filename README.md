@@ -22,3 +22,5 @@ Dear reader, these are the steps to run the program:
 4/18/18
 - from directory ../forked_openai_baselines, imported launch_experiment.py to this directory (Path-Finder) for openai-free implementation.
 Todo: consolodate all the static resource files into a single file, then begin rewriting exp
+
+question: when/where to populate network parameters given keywork [network]?
