@@ -227,6 +227,8 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     for si in textwrap.fill(s, 3*_val):
         while not len(si)%_val==1: si += ' '
         print(si, end='')
+    print('\n\n')
+    sys.stdout.flush()
 
     # tensorflow config -- all needs to be spot checked for option 'upgrades'
     cproto = tf.ConfigProto()
@@ -240,9 +242,9 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     with tf.Session(config = cproto ) as sess:
         env = PathEnv(ExpAPI(c.GAME_NAME, c.CENTRISM, card_or_rot = \
                     c.ACTION_MODE))
-        sess.run(tf.global_variables_initializer)
         try: assert(c.CENTRISM) in ['choose-mixed']
         except: raise Exception(c.CENTRISM+"centrism isn't supported! stub")
+        sess.run(tf.global_variables_initializer())
         model = mlp(Config) # for now...
 
 # .... stub left off
@@ -252,7 +254,7 @@ def new_run_exp_save( c, fout, replay_buf=False ):
         num_actions_taken = [0]
         # 4/19/18: due to immense utility of reset-act-etc openai framework,
         # initial thought says make it like that.
-        obs = env.reset(t=0, curr=curr, test_train='train')
+        obs = env.reset(t=0, curr=c.CURRICULUM, test_train='train')
         if Config.DEBUG:
             print(type(obs))
             print_state(obs)
@@ -272,7 +274,7 @@ def new_run_exp_save( c, fout, replay_buf=False ):
 
 
 def new_launch_expt(config):
-    c=config
+    c=config()
 
     # Input handle:
     assert(c.GAME_NAME in ['r-u', 'r-u-ru', 'gould-card-1'])

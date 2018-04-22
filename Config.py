@@ -123,3 +123,12 @@ class Config: # class'd for ease of access
     # depends on q: activate before or after [dropout,norm,etc]?
     FINAL_ACTIVATION = 'tanh'
     
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    def __init__(self):
+        # initializer for a few dependent parameters, etc.
+        self.CURRICULUM = self.CURRICULUM_NAME
+        if self.CURRICULUM_PARAM_1:
+            self.CURRICULUM += ':'+self.CURRICULUM_PARAM_1
+        if self.CURRICULUM_PARAM_2:
+            self.CURRICULUM += ':'+self.CURRICULUM_PARAM_2

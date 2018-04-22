@@ -38,6 +38,11 @@ ML[mobileLayer]=1;      ML=np.array(ML)
 IL[immobileLayer]=1;    IL=np.array(IL)
 not_a_layer = np.array([0,0,0,0])
 
+# HIJACKING MOBILE LAYER FOR HIDDENS
+hiddenLayer = mobileLayer
+LAYER_MAP['H'] = 3
+layer_names[3] = 'Hidden spot layer [gould]'
+
 # Global sentinels:
 MOVE_NORTH, MOVE_SOUTH, MOVE_EAST,  MOVE_WEST = 100,101,102,103
 MOVE_FWD,   MOVE_BACK                         = 110,111
@@ -1190,9 +1195,10 @@ class ExpAPI(environment_handler3):
             rotational heading frames.
          - optional debug-mode boolean flag
         ''' 
+        # Grid sizes: according to graphical X->Y, not matrix-like Y->X
         environment_handler3.__init__(self, gridsize = \
                 { 'tse2007': (11,11), 'r-u': (7,7), 'ru': (7,7), \
-                'r-u-ru': (7,7), 'gould-card-1':(5,3) }[experiment_name], \
+                'r-u-ru': (7,7), 'gould-card-1':(3,5) }[experiment_name], \
                 action_mode = centr, card_or_rot=card_or_rot, expt_name = \
                 experiment_name)
         self.centr = centr
@@ -1205,7 +1211,8 @@ class ExpAPI(environment_handler3):
                     'r-u-ru': TEMPLATE_R_U_RU, \
                     'r-u': TEMPLATE_R_U, \
                     }[experiment_name], debug)
-        else:pass
+        else:
+            self.set_gould_states(experiment_name, debug)
         self.experiment_name = experiment_name
 
     def _find_all(self, a_str, char):
@@ -1222,6 +1229,26 @@ class ExpAPI(environment_handler3):
                 startX += 1
 
     # Set this experiment's possible starting states using complete template str
+
+    def set_gould_states(self, experiment_name, debug):
+        if experiment_name=='gould-card-1': # pick arbitrary dev set:
+            tr_states = {'tr1':TEMPLATE_GOULD_TRAIN_1,'tr7':TEMPLATE_GOULD_TRAIN_7}
+        for st_uniq_id, (st_nm, state_template) in enumerate(tr_states.iteritems()):
+            start_locs = list(self._find_all(state_template, 'I'))
+            goal_locs = list(self._find_all(state_template, '!'));
+            hidden_locs = list(self._find_all(state_template, 'h'));
+            block_locs = list(self._find_all(state_template, 'x'));
+            assert(len(start_locs)==1 and len(goal_locs)==1)
+            # HIJACKING MOBILE LAYER FOR HIDDENS
+            st = np.zeros( (self.gridsz[X], self.gridsz[Y], NUM_LAYERS) )
+            put(st, start_locs[0], agentLayer, True)
+            put(st, goal_locs[0], goalLayer, True)
+            put_all(st, hidden_locs, hiddenLayer, True)
+            put_all(st, block_locs,  immobileLayer, True)
+            self.start_states.append( { 'state internal name': st_nm, \
+                        'state': st, 'unique id': st_uniq_id, \
+                        'startpos': start_locs[0], 'goalpos': goal_locs[0]})
+
     def _set_starting_states(self, state_template, debug=False):
         oind = state_template.index('o')
         if state_template.index('e') > oind: raise Exception()
@@ -1276,8 +1303,13 @@ class ExpAPI(environment_handler3):
 
     def _view_state_copy(self, st):
         sret = {}
-        for key in ('_startpos','flavor signal','_whichgoal'):
-            sret[key] = st[key]
+        try:
+            for key in ('_startpos','flavor signal','_whichgoal'):
+                sret[key] = st[key]
+        except:
+            for key in st.keys():
+                if key=='state': continue
+                sret[key] = st[key]
         sret['state'] = np.copy(st['state'])
         return sret
 
@@ -1293,8 +1325,9 @@ class ExpAPI(environment_handler3):
     def get_weighted_starting_state(self, envir, pct):
         pct=float(pct)
 #        print(envir,pct, 0.5*pct,1-pct)
-        if envir=='r-u': raise Exception()
-        assert (envir=='r-u-ru')
+        if envir=='r-u': raise NotImplemented()
+        if envir=='r-u-ru': raise NotImplemented()
+        assert (envir=='gould-card-1')
         ps = [0.5*pct, 0.5*pct, 1-pct]
         return self._view_state_copy(np.random.choice(\
                 self.curr_sorted_states, p=ps))
@@ -1539,10 +1572,11 @@ class PathEnv(object):
 
         Methods defined here: nothing of note. 
     '''
-    def __init__(self, exp_env, envir):
+    def __init__(self, exp_env, envir=None):
+        if envir==None: envir = exp_env.experiment_name
         sz = exp_env.getGridSize()
-        self.action_space = Discrete(4)
-        self.observation_space = spaces.Box(0,1, (sz[0], sz[1], NUM_LAYERS))
+#        self.action_space = Discrete(4)
+#        self.observation_space = spaces.Box(0,1, (sz[0], sz[1], NUM_LAYERS))
         self.envir=envir
                                        
         # ^^ Because gym Tuples don't come with one....!?
