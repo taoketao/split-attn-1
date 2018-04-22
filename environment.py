@@ -158,36 +158,33 @@ TEMPLATE_GOULD_TRAIN_8 =  '''\
                         
 #################################################
 
-TEMPLATE_GOULD_TRAIN_1 =  '''\
-            . . .         r
-            . x !         r
-            I h .         r
-            . x .         r
-            . . .         e
-                        o: *  '''
-TEMPLATE_GOULD_TRAIN_2 =  '''\
-            . h .         r
-            . x !         r
-            I . .         r
-            . x .         r
-            . . .         e
-                        o: *  '''
-TEMPLATE_GOULD_TRAIN_3 =  '''\
-            . h .         r
-            . x .         r
-            I . .         r
-            . x !         r
-            . . .         e
-                        o: *  '''
-TEMPLATE_GOULD_TRAIN_4 =  '''\
-            . . .         r
-            . x .         r
-            I h .         r
-            . x !         r
-            . . .         e
-                        o: *  '''
-# allo @ 1+2. allo @ 2+3. allo @ 1+4. allo @ 1+3
 
+
+TEMPLATE_GOULD_1_TRAIN_A =  '''\
+            x . x .         r
+            x . x !         r
+            x . . .         r
+            x I x .         r
+            x . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_1_TRAIN_B =  '''\
+            x . x .         r
+            x I x !         r
+            x . . .         r
+            x . x .         r
+            x . . .         e
+                        o: *  '''
+TEMPLATE_GOULD_1_TEST =  '''\
+            x . . .         r
+            x I x !         r
+            x . . .         r
+            x . x .         r
+            x . x .         e
+                        o: *  '''
+
+
+
+#################################################
 
 
 TEMPLATE_TSE = ''' x x x x x x x x x x x  r
@@ -966,7 +963,7 @@ class state_generator(object):
     def _generate_v1(self, rootloc, env, oriented):
         ''' V1, version one easiest state. These states are 3x3 and place the 
         agent directly next to the goal. '''
-        field_shape = (3,3) # for all V1 states.
+        field_shape = (4,3) # for all V1 states.
         if rootloc=='default_center': rootloc=(1,1)
         if not self._verifyWhere(rootloc, field_shape): sys.exit()
         states = []
@@ -1198,7 +1195,7 @@ class ExpAPI(environment_handler3):
         # Grid sizes: according to graphical X->Y, not matrix-like Y->X
         environment_handler3.__init__(self, gridsize = \
                 { 'tse2007': (11,11), 'r-u': (7,7), 'ru': (7,7), \
-                'r-u-ru': (7,7), 'gould-card-1':(3,5) }[experiment_name], \
+                'r-u-ru': (7,7), 'gould-card-1':(4,5) }[experiment_name], \
                 action_mode = centr, card_or_rot=card_or_rot, expt_name = \
                 experiment_name)
         self.centr = centr
@@ -1225,29 +1222,48 @@ class ExpAPI(environment_handler3):
             elif c=='r': 
                 startY += 1
                 startX = 0
-            if c in 'a!xm.': 
+            if c in 'a!xIm.': 
                 startX += 1
 
     # Set this experiment's possible starting states using complete template str
 
     def set_gould_states(self, experiment_name, debug):
         if experiment_name=='gould-card-1': # pick arbitrary dev set:
-            tr_states = {'tr1':TEMPLATE_GOULD_TRAIN_1,'tr7':TEMPLATE_GOULD_TRAIN_7}
-        for st_uniq_id, (st_nm, state_template) in enumerate(tr_states.iteritems()):
-            start_locs = list(self._find_all(state_template, 'I'))
-            goal_locs = list(self._find_all(state_template, '!'));
-            hidden_locs = list(self._find_all(state_template, 'h'));
-            block_locs = list(self._find_all(state_template, 'x'));
-            assert(len(start_locs)==1 and len(goal_locs)==1)
-            # HIJACKING MOBILE LAYER FOR HIDDENS
-            st = np.zeros( (self.gridsz[X], self.gridsz[Y], NUM_LAYERS) )
-            put(st, start_locs[0], agentLayer, True)
-            put(st, goal_locs[0], goalLayer, True)
-            put_all(st, hidden_locs, hiddenLayer, True)
-            put_all(st, block_locs,  immobileLayer, True)
-            self.start_states.append( { 'state internal name': st_nm, \
-                        'state': st, 'unique id': st_uniq_id, \
-                        'startpos': start_locs[0], 'goalpos': goal_locs[0]})
+            tr_states = {'tr1':TEMPLATE_GOULD_1_TRAIN_A,\
+                         'tr2':TEMPLATE_GOULD_1_TRAIN_B}
+            te_states = {'te1':TEMPLATE_GOULD_1_TEST}
+        train_states, test_states = [],[]
+        new_set = [train_states, test_states]
+        ordered_set = [tr_states, te_states]
+#        _stmap = {i:ordered_set[i] for i in range(len(ordered_set))}
+#        print(_stmap)
+        for st_id, state_set in enumerate(ordered_set):
+            for st_nm, state_template in state_set.iteritems():
+                start_locs = list(self._find_all(state_template, 'I'))
+                goal_locs = list(self._find_all(state_template, '!'));
+                hidden_locs = list(self._find_all(state_template, 'h'));
+                block_locs = list(self._find_all(state_template, 'x'));
+                assert(len(start_locs)==1 and len(goal_locs)==1)
+                # HIJACKING MOBILE LAYER FOR HIDDENS
+                st = np.zeros( (self.gridsz[X], self.gridsz[Y], NUM_LAYERS) )
+                put(st, start_locs[0], agentLayer, True)
+                put(st, goal_locs[0], goalLayer, True)
+                put_all(st, hidden_locs, hiddenLayer, True)
+                put_all(st, block_locs,  immobileLayer, True)
+                start_state = { 'state internal name': st_nm, \
+                                'state': st, \
+                                'startpos': start_locs[0], \
+                                'goalpos': goal_locs[0]}
+                self.start_states.append(start_state)
+                new_set[st_id].append(start_state)
+                # TODO 4/22 resume work here
+                if debug:
+                    print([start_state[x] for x in \
+                                ['state internal name',\
+                                'startpos', 'goalpos']])
+                    print_state(start_state['state'])
+        self.train_states = train_states
+        self.test_states = test_states
 
     def _set_starting_states(self, state_template, debug=False):
         oind = state_template.index('o')
@@ -1328,7 +1344,7 @@ class ExpAPI(environment_handler3):
         if envir=='r-u': raise NotImplemented()
         if envir=='r-u-ru': raise NotImplemented()
         assert (envir=='gould-card-1')
-        ps = [0.5*pct, 0.5*pct, 1-pct]
+        ps = [pct, 1-pct]
         return self._view_state_copy(np.random.choice(\
                 self.curr_sorted_states, p=ps))
 
@@ -1343,6 +1359,10 @@ class ExpAPI(environment_handler3):
         curr = curriculum_name
         cspl = curriculum_name.split(':')
         if curr==None:   return self.get_random_starting_state()['state']
+        # Gould:
+        #elif len(curr)==4 and curr=='FLAT' and len(cspl)==1:
+        #    return self.get_weighted_starting_state(envir, 0.5)['state']
+
         elif len(curr)>4 and curr[:4]=='FLAT' and len(cspl)==2:
             return self.get_weighted_starting_state(envir, float(cspl[1]))['state']
         elif len(curr)>6 and curr[:6]=='STEP-1' and len(cspl)==4:     
@@ -1355,7 +1375,7 @@ class ExpAPI(environment_handler3):
             pct = param*float(cspl[2])+(1-param)*float(cspl[1])
             return self.get_weighted_starting_state(envir, pct)['state']
         else:
-            raise exception(curr, cspl, epoch, envir) 
+            raise Exception(curr, cspl, epoch, envir) 
 
         return curriculum_name, 'error expenv line ~200'
 
@@ -1535,20 +1555,31 @@ def print_state(start_state, mode='condensed', print_or_ret='print'):
         S += str(mode+':')
     if mode=='matrices':
         for i in range(st.shape[-1]):
-            S += str(st[:,:,i])
+            S += str(st[:,:,i])+'\n\n'
     if mode=='condensed':
         for y in range(st.shape[Y]):
             for x in range(st.shape[X]):
-                if st[x,y,goalLayer] and st[x,y,agentLayer]: S += str('!')
+
+                if   st[x,y,goalLayer]: S += str('!')
                 elif st[x,y,agentLayer]: S += str('I')
-                elif st[x,y,goalLayer] and st[x,y,mobileLayer]: S += str('@')
-                elif st[x,y,goalLayer]: S += str('*')
-                elif st[x,y,immobileLayer]: S += str('-')
-                elif st[x,y,mobileLayer]: S += str('o')
+                elif st[x,y,immobileLayer]: S += str('#')
+                elif st[x,y,hiddenLayer]: S += str('o')
                 elif 0==np.sum(st[x,y,:]): S += str(' ')
                 else: 
-                    S += str('#')
+                    S += str('?')
                     print(S)
+                S += ' ' 
+
+#                if st[x,y,goalLayer] and st[x,y,agentLayer]: S += str('!')
+#                elif st[x,y,agentLayer]: S += str('I')
+#                elif st[x,y,goalLayer] and st[x,y,mobileLayer]: S += str('@')
+#                elif st[x,y,goalLayer]: S += str('*')
+#                elif st[x,y,immobileLayer]: S += str('-')
+#                elif st[x,y,mobileLayer]: S += str('o')
+#                elif 0==np.sum(st[x,y,:]): S += str(' ')
+#                else: 
+#                    S += str('#')
+#                    print(S)
 #                raise Exception("Error", st[x,y,:],S)
             S += str('\n')
     if not type(start_state)==np.ndarray:
@@ -1621,12 +1652,18 @@ class PathEnv(object):
 #            self.previous_state = self.current_state = \
 #                        self.exp_env.get_starting_state(curriculum, t, envir=self.envir)
 #        elif test_train=='test':
-        if test_train=='test':
+
+        # hacky:
+        assert(self.envir == 'gould-card-1')
+
+
+        if test_train=='train':
+            # Todo: probabilities / schedules
             self.previous_state = self.current_state = \
-                    self.exp_env.get_random_starting_state()['state']
-        elif test_train=='train':
+                    np.random.choice(self.exp_env.train_states)
+        elif test_train=='test':
             self.previous_state = self.current_state = \
-                    self.exp_env.get_starting_state(curriculum, t, envir=self.envir)
+                    np.random.choice(self.exp_env.test_states)
         else: raise Exception(test_train)
                     
         return self.current_state
