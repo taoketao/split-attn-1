@@ -270,8 +270,11 @@ def new_run_exp_save( c, fout, replay_buf=False ):
             if mode_te_tr=='train': train_t += 1
             elif mode_te_tr=='test': test_t += 1
 # .... stub left off
-        print('sanity: done')
+            if mode_te_tr=='train': 
+                action = act
+            elif mode_te_tr=='test': test_t += 1
 
+        print('sanity: done')
 
 def new_launch_expt(config):
     c=config()
