@@ -1,4 +1,4 @@
-# Path-Finder
+# Path-Finder: split-attn-1
 Implementation of a deep reinforcement learning model trained to solve pathfinder puzzles.
 
 See results commit on 4-22-17.  Observation: convergence and convergence rate are relatively 
@@ -23,4 +23,7 @@ Dear reader, these are the steps to run the program:
 - from directory ../forked_openai_baselines, imported launch_experiment.py to this directory (Path-Finder) for openai-free implementation.
 Todo: consolodate all the static resource files into a single file, then begin rewriting exp
 
-question: when/where to populate network parameters given keywork [network]?
+Question: when/where to populate network parameters given keywork [network]?
+
+4/28/18
+first, marking comments widely with [428] tag.

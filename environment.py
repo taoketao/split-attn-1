@@ -1264,6 +1264,8 @@ class ExpAPI(environment_handler3):
                     print_state(start_state['state'])
         self.train_states = train_states
         self.test_states = test_states
+    
+    def state_input_shape(self): return self.start_states[0]['state'].shape
 
     def _set_starting_states(self, state_template, debug=False):
         oind = state_template.index('o')
@@ -1761,6 +1763,90 @@ especially openai's gym, which however we are not using anymore.
 ##    return lambda *args, **kwargs: _mlp(hiddens=[64], seed=seed, *args, **kwargs)
 #
     
+"""                    
+def _mlp_custom(inpt, c, **kwargs):
+    if c.REUSE=='default': c.REUSE = tf.AUTO_REUSE
+    with tf.variable_scope(c.scope, reuse=reuse):
+        with tf.device(c._DEVICE):
+            if c.SET_SEED_MANUALLY: tf.set_random_seed(c.SEED)
+            out = tf.contrib.layers.flatten(inpt)
+            for hidden in c.hiddens:
+                out = layers.fully_connected(out, num_outputs=hidden)
+                if c.DROPOUT: out = tf.nn.dropout(out, c.DROPOUT)
+                if layer_norm: out = layers.layer_norm(\
+                        out, center=True, scale=True)
+            out = layers.fully_connected(out, num_outputs=c.MAX_NUM_ACTIONS,\
+                            activation_fn=c.FINAL_ACTIVATION)
+            return out
+    """                    
+        
+def mlp(c, inpt_shape, vers=None, hiddens=None, osize=None, itr=0, debug=False):
+    """ mlp: a shorthand for internal hijacked qfunc-like network.
+    Parameters
+    ----------
+    (config_file, inpt_shape, args)
+    Supplied extra arguments override config file c arguments. Recommended.
+
+    Returns
+    -------
+    finished built model (chunk)
+    """                    
+    if debug and sys.version_info[0]==3:
+        print('Debug switched off: redo the print statements yourself!')
+        debug=False
+    try:
+        surely_uniq_name = vers+'_input_var_'+str(itr)
+        itr+=1
+    except: raise Exception()
+
+    if hiddens==None: 
+        try:    hiddens = c.HIDDENS
+        except: 
+            print("Warning: hiddens specified nowhere; stub is used")
+            hiddens = [64]
+    if osize==None: 
+        try:    
+            osize = c.MAX_NUM_ACTIONS
+            print("Using MAX_NUM_ACTIONS as output variable shape")
+        except: 
+            raise Exception("Warning: output_shape unspecified; exiting.")
+
+    if vers in ['allo','ego','attn'] and c.GAME_NAME=='gould-card-1':
+        _inpt_ = tf.get_variable('inp_'+vers+'_input_var_', inpt_shape)
+        if debug: print 'x ',_inpt_.shape, _inpt_.name 
+    else: raise Exception("Not viable experiment yet 428 [network builder]")
+
+    if c.REUSE=='default': c.REUSE = tf.AUTO_REUSE
+    with tf.variable_scope(vers+'_input_var__'+c.SCOPE):
+      with tf.device(c._DEVICE):
+        if c.SET_SEED_MANUALLY: tf.set_random_seed(c.SEED)
+
+        out = tf.reshape(_inpt_, (-1,np.prod(inpt_shape)))
+        if debug: print '- ', out.shape, out.name 
+        for i,hidden in enumerate(hiddens):
+            if debug: print '\t', hidden, out.shape, out.name 
+            out = tf.layers.dense(out, hidden)#, \
+        afn = {'sigmoid':tf.nn.sigmoid, 'tanh':tf.nn.tanh}[c.FINAL_ACTIVATION]
+        if debug: print('out shape:\t'+str(out.shape)+'\t of var: \t'+out.name)
+        out = afn(tf.layers.dense(out, osize))
+        out = tf.reduce_mean(out,0)
+        return out
+        
+
+# Old deprecated code from mlp(..):
+
+#    with tf.variable_scope(surely_uniq_name+'__'+c.SCOPE):
+
+#            out = tf.layers.dense(out, hidden)#, \
+#                    #name= out.name)
+#            if c.DROPOUT: out = tf.nn.dropout(out, c.DROPOUT)
+#            if c.LAYER_NORM: out = tf.layers.BatchNormalization(\
+#                    out, center=True, scale=True,\
+#                    name=vers+'_nrm_'+str(i+100)+'_')
+
+#        out = tf.layers.dense(out, osize,\
+#                    name=vers+'_out_',  activation_fn=afn)
+
 
 def original_pathfinder_model(config):
     """This model is a recreation, as close as possible, to the original 
@@ -1774,42 +1860,9 @@ def original_pathfinder_model(config):
     -------
     function which takes as arguments (input_var, config, **kwargs)
     """
-#    def _mlp_custom(hiddens, inpt, num_actions, scope, seed_int, \
-#                    reuse=tf.AUTO_REUSE, layer_norm=False,config=None):
-#        with tf.variable_scope(scope, reuse=reuse):
-#            with tf.device(config._DEVICE): # Require a config!
-#                tf.set_random_seed(seed_int)
-#                out = tf.contrib.layers.flatten(inpt)
-#                for hidden in hiddens:
-#                    out = layers.fully_connected(out, num_outputs=hidden)
-#                    out = tf.nn.dropout(out, 0.5)
-#                    if layer_norm:
-#                        out = layers.layer_norm(out, center=True, scale=True)
-#                q_out = layers.fully_connected(out, num_outputs=num_actions,\
-#                            activation_fn=tf.nn.tanh)
-#                return q_out
-#
-    def _mlp_custom(inpt, c):
-        if c.REUSE=='default': c.REUSE = tf.AUTO_REUSE
-        with tf.variable_scope(c.scope, reuse=reuse):
-            with tf.device(c._DEVICE):
-                if c.SET_SEED_MANUALLY: tf.set_random_seed(c.SEED)
-                out = tf.contrib.layers.flatten(inpt)
-                for hidden in c.hiddens:
-                    out = layers.fully_connected(out, num_outputs=hidden)
-                    if c.DROPOUT: out = tf.nn.dropout(out, c.DROPOUT)
-                    if layer_norm: out = layers.layer_norm(\
-                            out, center=True, scale=True)
-                out = layers.fully_connected(out, num_outputs=c.MAX_NUM_ACTIONS,\
-                                activation_fn=c.FINAL_ACTIVATION)
-                return out
-                                                       
     c=config
     if not c.NETWORK: c.hiddens=[64]
     return lambda *args, **kwargs: _mlp_custom(c=c, *args, **kwargs)
-
-# alias:
-mlp = original_pathfinder_model
 
 #def _decider_mlp(hiddens, inpt_list, num_actions, scope, seed_int, \
 #                reuse=tf.AUTO_REUSE, layer_norm=False,config=None):
@@ -1968,139 +2021,4 @@ mlp = original_pathfinder_model
 #
 #    if print_or_ret=='print': print(S)
 #    else: return S
-
-
-def build_train_paired(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
-    double_q=True, scope="deepq", reuse=None, param_noise=False, param_noise_filter_func=None):
-    """Creates the train function:
-
-    Parameters
-    ----------
-    make_obs_ph: str -> tf.placeholder or TfInput
-        a function that takes a name and creates a placeholder of input with that name
-    q_func: (tf.Variable, int, str, bool) -> tf.Variable
-        the model that takes the following inputs:
-            observation_in: object
-                the output of observation placeholder
-            num_actions: int
-                number of actions
-            scope: str
-            reuse: bool
-                should be passed to outer variable scope
-        and returns a tensor of shape (batch_size, num_actions) with values of every action.
-    num_actions: int
-        number of actions
-    reuse: bool
-        whether or not to reuse the graph variables
-    optimizer: tf.train.Optimizer
-        optimizer to use for the Q-learning objective.
-    grad_norm_clipping: float or None
-        clip gradient norms to this value. If None no clipping is performed.
-    gamma: float
-        discount rate.
-    double_q: bool
-        if true will use Double Q Learning (https://arxiv.org/abs/1509.06461).
-        In general it is a good idea to keep it enabled.
-    scope: str or VariableScope
-        optional scope for variable_scope.
-    reuse: bool or None
-        whether or not the variables should be reused. To be able to reuse the scope must be given.
-    param_noise: bool
-        whether or not to use parameter space noise (https://arxiv.org/abs/1706.01905)
-    param_noise_filter_func: tf.Variable -> bool
-        function that decides whether or not a variable should be perturbed. Only applicable
-        if param_noise is True. If set to None, default_param_noise_filter is used by default.
-
-    Returns
-    -------
-    act: (tf.Variable, bool, float) -> tf.Variable
-        function to select and action given observation.
-`       See the top of the file for details.
-    train: (object, np.array, np.array, object, np.array, np.array) -> np.array
-        optimize the error in Bellman's equation.
-`       See the top of the file for details.
-    update_target: () -> ()
-        copy the parameters from optimized Q function to the target Q function.
-`       See the top of the file for details.
-    debug: {str: function}
-        a bunch of functions to print debug data like q_values.
-    """
-    if param_noise:
-        act_f = build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse,
-            param_noise_filter_func=param_noise_filter_func)
-    else:
-        act_f = build_act_paired(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse)
-
-    with tf.variable_scope(scope, reuse=reuse):
-        # set up placeholders
-        obs_t_input = U.ensure_tf_input(make_obs_ph("obs_t"))
-        act_t_ph = tf.placeholder(tf.int32, [None], name="action")
-        rew_t_ph = tf.placeholder(tf.float32, [None], name="reward")
-        obs_tp1_input = U.ensure_tf_input(make_obs_ph("obs_tp1"))
-        done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
-        importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
-
-        # q network evaluation
-        q_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
-        q_func_vars = U.scope_vars(U.absolute_scope_name("q_func"))
-
-        # target q network evalution
-        q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
-        target_q_func_vars = U.scope_vars(U.absolute_scope_name("target_q_func"))
-
-        # q scores for actions which we know were selected in the given state.
-        q_t_selected = tf.reduce_sum(q_t * tf.one_hot(act_t_ph, num_actions), 1)
-
-        # compute estimate of best possible value starting from state at t + 1
-        if double_q:
-            q_tp1_using_online_net = q_func(obs_tp1_input.get(), num_actions, scope="q_func", reuse=True)
-            q_tp1_best_using_online_net = tf.arg_max(q_tp1_using_online_net, 1)
-            q_tp1_best = tf.reduce_sum(q_tp1 * tf.one_hot(q_tp1_best_using_online_net, num_actions), 1)
-        else:
-            q_tp1_best = tf.reduce_max(q_tp1, 1)
-        q_tp1_best_masked = (1.0 - done_mask_ph) * q_tp1_best
-
-        # compute RHS of bellman equation
-        q_t_selected_target = rew_t_ph + gamma * q_tp1_best_masked
-
-        # compute the error (potentially clipped)
-        td_error = q_t_selected - tf.stop_gradient(q_t_selected_target)
-        errors = U.huber_loss(td_error)
-        weighted_error = tf.reduce_mean(importance_weights_ph * errors)
-
-        # compute optimization op (potentially with gradient clipping)
-        if grad_norm_clipping is not None:
-            optimize_expr = U.minimize_and_clip(optimizer,
-                                                weighted_error,
-                                                var_list=q_func_vars,
-                                                clip_val=grad_norm_clipping)
-        else:
-            optimize_expr = optimizer.minimize(weighted_error, var_list=q_func_vars)
-
-        # update_target_fn will be called periodically to copy Q network to target Q network
-        update_target_expr = []
-        for var, var_target in zip(sorted(q_func_vars, key=lambda v: v.name),
-                                   sorted(target_q_func_vars, key=lambda v: v.name)):
-            update_target_expr.append(var_target.assign(var))
-        update_target_expr = tf.group(*update_target_expr)
-
-        # Create callable functions
-        train = U.function(
-            inputs=[
-                obs_t_input,
-                act_t_ph,
-                rew_t_ph,
-                obs_tp1_input,
-                done_mask_ph,
-                importance_weights_ph
-            ],
-            outputs=td_error,
-            updates=[optimize_expr]
-        )
-        update_target = U.function([], [], updates=[update_target_expr])
-
-        q_values = U.function([obs_t_input], q_t)
-
-        return act_f, train, update_target, {'q_values': q_values}
-
 

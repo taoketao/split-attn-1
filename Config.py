@@ -18,7 +18,7 @@ class Config: # class'd for ease of access
     VISUALIZATION = False # for interactive or for bulk-processing modes
     PLOTTING_SMOOTHING = 10
 
-    SAVE_LOGS = True
+    SAVE_LOGS = False
     ALT_SAVE_DIR = None
     DEBUG = False # what, specifically???
 
@@ -79,6 +79,12 @@ class Config: # class'd for ease of access
     NETWORK = None #  identify the network topology via keyword.
     TRIAL_COUNTER = 'stub' # iterate this for multitrials, with a config
 #                   varying tool
+    # network manual specification:
+    NETWORK_STRUCTURE = 'jjb-wide' # jordan jacobs barto: 1 layer attends 2 others
+    # hypothesized: jjb-wide is attn gets both allo and ego; jjb-mix is it gets sum
+    NET_ATTN_LAYERS = [60]
+    NET_ALLO_LAYERS = [61,62]
+    NET_EGO_LAYERS = [63,59]
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -121,7 +127,7 @@ class Config: # class'd for ease of access
     DROPOUT = 0.5
     LAYER_ACTIVATIONS = None # implementation stub! no activations.
     # depends on q: activate before or after [dropout,norm,etc]?
-    FINAL_ACTIVATION = 'tanh'
+    FINAL_ACTIVATION = 'sigmoid'#'tanh'
     
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -132,3 +138,5 @@ class Config: # class'd for ease of access
             self.CURRICULUM += ':'+self.CURRICULUM_PARAM_1
         if self.CURRICULUM_PARAM_2:
             self.CURRICULUM += ':'+self.CURRICULUM_PARAM_2
+        if not self.SCOPE: self.SCOPE = 'default_scope'
+
