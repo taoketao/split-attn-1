@@ -14,7 +14,7 @@ class Config: # class'd for ease of access
     '''''   SYSTEM OPTIONS 
             purely programmatic and interface options
     '''''
-
+ 
     VISUALIZATION = False # for interactive or for bulk-processing modes
     PLOTTING_SMOOTHING = 10
 
