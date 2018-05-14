@@ -229,16 +229,17 @@ def new_run_exp_save( c, fout, replay_buf=False ):
             print(type(obs_e))
             print_state(obs_e)
             print_state(obs_a)
-        for s in env_ego.start_states:
+        for XX in [env_ego.exp_env.test_states, env_ego.exp_env.train_states]:
+          for s in XX:
 #            err_delta = 2-s['startpos'][1]
 #            print(err_delta, s.keys())
 #            s['state'] = np.roll(s['state'], err_delta, axis=1)
             print_state(s)
             print('')
-        print('')
-        print('^ego, vallo')
-        print('')
-        for s in env_allo.start_states:
+          print('---------')
+        print('^ego, v allo')
+        for XX in [env_allo.exp_env.train_states, env_allo.exp_env.test_states]:
+          for s in XX:
             print('')
             print_state(s)
 

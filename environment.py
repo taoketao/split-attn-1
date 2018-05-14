@@ -1622,6 +1622,7 @@ class PathEnv(object):
 
         self.current_state = exp_env.get_random_starting_state()['state']
         self.previous_state = self.current_state
+        self.config=config
         self.exp_env = exp_env        
         self.start_states = exp_env.start_states
         self.metadata = {'render.modes':['human','ansi','PRINT','NOPRINT']}
@@ -1637,6 +1638,17 @@ class PathEnv(object):
         print("a pathfinder environment wrapper has been imported")
 
     def reset(self, epoch=-1, t=-1, curr=None, test_train='train'): 
+        if self.config.GAME_NAME == 'gould-card-1':
+            try: assert(epoch<=0 and curr in [None, 'FLAT'])
+            except: 
+                print(test_train,self.config.GAME_NAME,\
+                        epoch,curr,' did not work; does not yet support curricula.')
+            return np.random.choice({'test':self.exp_env.train_states, \
+                            'train':self.exp_env.test_states}[test_train])
+
+
+
+        
         if test_train=='test':
             return self._reset(test_train='test')
         if t<0 and epoch>=0: t=epoch
