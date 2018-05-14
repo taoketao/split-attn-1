@@ -10,8 +10,6 @@ from scipy.sparse import coo_matrix
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
 
-from Config import Config
-
 if __name__=='__main__': print('Loading custom resources...',time.asctime())
 
 X=0; Y=1;
@@ -1250,9 +1248,15 @@ class ExpAPI(environment_handler3):
                 put(st, goal_locs[0], goalLayer, True)
                 put_all(st, hidden_locs, hiddenLayer, True)
                 put_all(st, block_locs,  immobileLayer, True)
-                start_state = { 'state internal name': st_nm, \
-                                'state': st, \
-                                'startpos': start_locs[0], \
+
+                if self.centr=='egocentric':
+                    ego_delta_err = 2-start_locs[0][1] # assumes Nx5 grid world
+                    st = np.roll(st, ego_delta_err, axis=1)
+
+                start_state = { 'state internal name': st_nm,           \
+                                'state': st, 'train_or_probe':          \
+                                {0:'train', 1:'probe'}[st_id],          \
+                                'startpos': start_locs[0],              \
                                 'goalpos': goal_locs[0]}
                 self.start_states.append(start_state)
                 new_set[st_id].append(start_state)
@@ -1307,12 +1311,12 @@ class ExpAPI(environment_handler3):
                 #        rnd_state = self.start_states[np.random.choice(range(24))]
 
 
+
         self.curr_sorted_states = self.start_states.copy()
         def dist(state_):
             x,y = state_['goal loc'], state_['_startpos']
             return abs(x[0]-y[0])+abs(x[1]-y[1])
         self.curr_sorted_states.sort(key=dist)
-
 
         rnd_state = np.random.choice(self.start_states)
         if debug: 
@@ -1554,7 +1558,7 @@ def print_state(start_state, mode='condensed', print_or_ret='print'):
         st = start_state
     else:
         st = start_state['state']
-        S += str(mode+':')
+        S += str(mode+':\n')
     if mode=='matrices':
         for i in range(st.shape[-1]):
             S += str(st[:,:,i])+'\n\n'
@@ -1585,8 +1589,10 @@ def print_state(start_state, mode='condensed', print_or_ret='print'):
 #                raise Exception("Error", st[x,y,:],S)
             S += str('\n')
     if not type(start_state)==np.ndarray:
-        S += str("Flavor signal/goal id: ", start_state['flavor signal'])
-
+        try: _s_ = str("Flavor signal/goal id: ", start_state['flavor signal'])
+        except: _s_ = "start pos and hidden goal pos id:" + \
+                str(start_state['startpos']) + str(start_state['goalpos'])
+        S += _s_
     if print_or_ret=='print': print(S)
     else: return S
 
@@ -1605,7 +1611,7 @@ class PathEnv(object):
 
         Methods defined here: nothing of note. 
     '''
-    def __init__(self, exp_env, envir=None):
+    def __init__(self, config, exp_env, envir=None):
         if envir==None: envir = exp_env.experiment_name
         sz = exp_env.getGridSize()
 #        self.action_space = Discrete(4)
@@ -1617,14 +1623,15 @@ class PathEnv(object):
         self.current_state = exp_env.get_random_starting_state()['state']
         self.previous_state = self.current_state
         self.exp_env = exp_env        
+        self.start_states = exp_env.start_states
         self.metadata = {'render.modes':['human','ansi','PRINT','NOPRINT']}
         self.reward_range = (0,1)
         self.flag=True
 
-        if Config.GAME_NAME=='r-u-ru':
-            if Config.CURRICULUM_NAME=='FLAT':
+        if config.GAME_NAME=='r-u-ru':
+            if config.CURRICULUM_NAME=='FLAT':
                 pass#self.level_1_task = 'r-u-ru'
-            elif Config.CURRICULUM_NAME in ['LIN','STEP']:
+            elif config.CURRICULUM_NAME in ['LIN','STEP']:
 #                self.level_2_task = 'ru'
                 self.levels = ['r-u', 'ru']
         print("a pathfinder environment wrapper has been imported")
@@ -1640,7 +1647,7 @@ class PathEnv(object):
             self.flag=False;
             curriculum=None
         else:
-            curriculum=Config.CURRICULUM_NAME 
+            curriculum=config.CURRICULUM_NAME 
         return self._reset(curriculum, t, test_train='train') # ugh might be buggy watch out
 
 
@@ -1705,9 +1712,9 @@ class PathEnvAuto(PathEnv):
     # Running this simply initializes the pathfinder environment according
     # to the config parameters
     def __init__(self):
-        #super(PathEnv.__init__(self, exp_env(Config.GAME_NAME, Config.CENTRISM)))
+        #super(PathEnv.__init__(self, exp_env(config.GAME_NAME, config.CENTRISM)))
         try:
-            PathEnv.__init__(self, ExpAPI(Config.GAME_NAME, Config.CENTRISM))
+            PathEnv.__init__(self, config, ExpAPI(config.GAME_NAME, config.CENTRISM))
         except:
             raise Exception()
                        

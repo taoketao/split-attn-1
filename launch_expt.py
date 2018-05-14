@@ -21,77 +21,11 @@ import textwrap
 
 from Config import Config
 
-#def model(inpt, num_actions, scope, reuse=False):
-#    print('~!~!~!~!~!~!~!~ Model made here. inpt,num_actions:', \
-#       inpt, inpt.shape, num_actions)
-#    """This model takes as input an observation and returns values of all actions."""
-#    with tf.variable_scope(scope, reuse=reuse):
-#        out = inpt
-#        out = layers.fully_connected(out, num_outputs=64, activation_fn=tf.nn.tanh)
-#        out = layers.fully_connected(out, num_outputs=num_actions, activation_fn=None)
-#        return out
-#
-#
+
 #def run_exp_save(envir, centrism, seed, dest, expl, curr, repr_seed, \
 #                    done_score, trial_counter, actn, mna, fout):
 #
-#    s = 'params::: envir, centrism, seed, dest, expl, curr, repr_seed, '+\
-#        'done_score, trial_counter, actn_mode, max_num_actions'
-#    
-#    if not fout==None: fout.write(s+'\n')
-#    if Config.SAVE_LOGS:print(s); 
-#    for field in [envir, centrism, seed, dest, expl, curr, repr_seed, \
-#                    done_score, trial_counter, actn, mna]:
-#        if not fout==None: fout.write(str(field)+'\n')
-#        if Config.SAVE_LOGS:print('ESSENTIAL PARAMETER:', field)
-#
-#    if not fout==None: 
-#        fout.write('----arguments done----\nepisode // test reward\n\n')
-#
-#    with U_custom.make_session(8) as sess:
-#        # Create the environment
-#        env = PathEnv(ExpAPI(envir, centrism, card_or_rot=actn), envir)
-#        print('>&>', env.observation_space, type(env.observation_space))
-#        print('>%>', env.observation_space.shape)
-#        #help(env.observation_space)
-#        # Create all the functions necessary to train the model
-#
-#
-#        ''' This commented model works indeed.  
-#        model = cnn_to_mlp(convs=[env.observation_space.shape], hiddens=[64],\
-#                    dueling=True, layer_norm=False)
-#        '''
-#        sess.run(tf.global_variables_initializer())
-#        if centrism in ['allocentric', 'egocentric']:
-#            raise Exception("Not active in this simulation.")
-##            model = original_pathfinder_model(seed=seed, config=Config) 
-##            # ^^ network, that is ('model' is bad name)
-##            act, train, update_target, debug = deepq.build_train(
-##                make_obs_ph=lambda name: U.BatchInput(\
-##                        env.observation_space.shape, name=name),
-##                q_func=model,
-##                num_actions=env.action_space.n,
-##                optimizer=tf.train.AdamOptimizer(learning_rate=1e-3, \
-##                        epsilon=1e-6),
-##                gamma=0.9,
-##                reuse=tf.AUTO_REUSE
-##            )
-#        elif centrism == 'choose-mixed':
-#            model = decider_two_model(seed=seed, config=Config) \
-#                    # network, that is ('model' is bad name)
-#            print(env.observation_space.shape)
-#            env.observation_space.shape = tuple(list(env.\
-#                    observation_space.shape)+[2])
-#            act, train, update_target, debug = build_train_paired(
-#                make_obs_ph=lambda name: U.BatchInput(env.\
-#                        observation_space.shape, name=name),
-#                q_func=model,
-#                num_actions=env.action_space.n,
-#                optimizer=tf.train.AdamOptimizer(learning_rate=1e-3, \
-#                        epsilon=1e-6),
-#                gamma=0.9,
-#                reuse=tf.AUTO_REUSE
-#            )
+#       ...  ...  ...  ...  ...
 #
 #        # Create the replay buffer
 #        replay_buffer = ReplayBuffer(1000)
@@ -102,27 +36,6 @@ from Config import Config
 #        #exploration = LinearSchedule(schedule_timesteps=1000, 
 #        #initial_p=1.0, final_p=0.02)
 #
-#        if len(expl)>4 and expl[:4]=='FLAT':
-#            exploration = ConstantSchedule(float(expl.split(':')[1]))
-#        elif len(expl)>6 and expl[:6]=='LINEAR-1':
-#            startp,endp,nsteps = (float(f) for f in expl.split(':')[1:])
-#            exploration = LinearSchedule(schedule_timesteps=nsteps, \
-#                    initial_p=startp, final_p=endp)
-#
-#
-#        # Initialize the parameters and copy them to the target network.
-#        U.initialize()
-#        # update_target() -> repeated fresh trials *don't* want to set .....
-#        episode_rewards = [0]
-#        testing_results = [0]
-#        num_actions_taken = [0]
-#        obs = env.reset(t=0, curr=curr, test_train='train')
-#        if Config.DEBUG:
-#            print(type(obs))
-#            print_state(obs)
-#        mode_te_tr = 'train'
-#        test_t=train_t=0
-#        is_solved=is_episode_completed=False
 #
 #
 #        for t in itertools.count():
@@ -230,6 +143,7 @@ from Config import Config
 # new experiment launch scripts, adapted from ones above.
 
 def new_run_exp_save( c, fout, replay_buf=False ):
+    print("A new experiment is invoked. Info: first are parameter settings, ")
     """ new_run_exp_save: a new function that more directly
         implements a two-headed network.
 
@@ -252,9 +166,9 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     # dump parameters for output: 
     _val=30
     s = ' '.join([ljust(s_,_val) for s_ in [k+':'+str(v) for k,v \
-                  in c.__dict__.iteritems() if not k[:2]=='__']])
+                  in sorted(vars(c).items()) if not k[:2]=='__']])
     itr=0
-    print('questionable process:')
+    #print('questionable process:')
     for si in textwrap.fill(s, 3*_val):
         while not len(si)%_val==1: si += ' '
         print(si, end='')
@@ -274,9 +188,9 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     with tf.Session(config = cproto ) as sess:
         var_name_id = 1234
         # ---- set environment ----
-        env_allo = PathEnv(ExpAPI(c.GAME_NAME, 'allocentric', card_or_rot = \
+        env_allo = PathEnv(c, ExpAPI(c.GAME_NAME, 'allocentric', card_or_rot = \
                                                               c.ACTION_MODE)) 
-        env_ego  = PathEnv(ExpAPI(c.GAME_NAME, 'egocentric' , card_or_rot = \
+        env_ego  = PathEnv(c, ExpAPI(c.GAME_NAME, 'egocentric' , card_or_rot = \
                                                               c.ACTION_MODE)) 
 #       in every iteration, there are env_allo and env_ego structures.
         if c.NETWORK_STRUCTURE=='jjb-wide': # build three quasi-JJB model components
@@ -300,33 +214,42 @@ def new_run_exp_save( c, fout, replay_buf=False ):
                     tf.multiply(model_attn[1], model_ego))
         else: raise NotImplemented('jjb-wide is only implemented model')
         
-        sys.exit()
-            
-
         sess.run(tf.global_variables_initializer()) # after env init'ed
-
-        model = mlp(Config) # for now...
-        ''' mlp: borrowed from internal function defined in the returned - 
-            q_func - lambda thing. Takes two args: InputTFVar and Config '''
-# .... stub left off 428
-
 
         episode_rewards = [0]
         testing_results = [0]
         num_actions_taken = [0]
         # 4/19/18: due to immense utility of reset-act-etc openai framework,
         # initial thought says make it like that.
-        obs = env.reset(t=0, curr=c.CURRICULUM, test_train='train')
-        if Config.DEBUG:
-            print(type(obs))
-            print_state(obs)
+        obs_e = env_ego.reset(t=0, curr=c.CURRICULUM, test_train='train')
+        obs_a = env_allo.reset(t=0, curr=c.CURRICULUM, test_train='train')
+
+
+        if c.DEBUG:
+            print(type(obs_e))
+            print_state(obs_e)
+            print_state(obs_a)
+        for s in env_ego.start_states:
+#            err_delta = 2-s['startpos'][1]
+#            print(err_delta, s.keys())
+#            s['state'] = np.roll(s['state'], err_delta, axis=1)
+            print_state(s)
+            print('')
+        print('')
+        print('^ego, vallo')
+        print('')
+        for s in env_allo.start_states:
+            print('')
+            print_state(s)
+
         mode_te_tr = 'train'
         test_t=train_t=0
         is_solved=is_episode_completed=False
 
+        sys.exit()
 
         for t in itertools.count():
-            if Config.DONE_MODE == 'epochs' and t > Config.DONE_EPOCHS:
+            if c.DONE_MODE == 'epochs' and t > c.DONE_EPOCHS:
                 break
             # Take action and update exploration to the newest value
             if mode_te_tr=='train': train_t += 1
