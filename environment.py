@@ -1620,6 +1620,9 @@ class PathEnv(object):
                                        
         # ^^ Because gym Tuples don't come with one....!?
 
+        self.n_train_states = len(exp_env.train_states)
+        self.n_test_states = len(exp_env.test_states)
+
         self.current_state = exp_env.get_random_starting_state()['state']
         self.previous_state = self.current_state
         self.config=config
@@ -1849,7 +1852,7 @@ def mlp(c, inpt_shape, vers=None, hiddens=None, osize=None, itr=0, debug=False):
         if debug: print('out shape:\t'+str(out.shape)+'\t of var: \t'+out.name)
         out = afn(tf.layers.dense(out, osize))
         out = tf.reduce_mean(out,0)
-        return out
+        return out, _inpt_
         
 
 # Old deprecated code from mlp(..):

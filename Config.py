@@ -90,6 +90,12 @@ class Config: # class'd for ease of access
     self.NET_ALLO_LAYERS = [61,62]
     self.NET_EGO_LAYERS = [63,59]
 
+    # unused:
+    self.ATTENTION_MODE_TRAIN = 'smooth-zero-sum'
+    self.ATTENTION_MODE_TEST  = 'winner-takes-all'
+
+    self.ELIM_USELESS_ACTIONS = True
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -116,6 +122,7 @@ class Config: # class'd for ease of access
     # 'FLAT:0.8', 'linear-1:1.0:0.2:250', ...
     self.OPTIMIZER = ['adam', 1e-6]
     self.LOSS_FUNCTION = 'huber3e-5'
+    self.DEFAULT_HUBER_SATURATION = 0.1 # 0.03?
     self.EPSILON = 1.0
     self.REWARD = 1.0
     self.NO_REWARD = 0.0

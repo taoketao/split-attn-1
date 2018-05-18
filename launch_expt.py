@@ -142,10 +142,137 @@ from Config import Config
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # new experiment launch scripts, adapted from ones above.
 
-def new_run_exp_save( c, fout, replay_buf=False ):
-    print("A new experiment is invoked. Info: first are parameter settings, ")
+
+
+class network_util(object):
+    ''' network_util: a simple (wrapper-like) class that facilitates 
+        varied interfacing with the constituent network.
+        
+    '''
+    def __init__(self, conf, model, inp_shape, sess, inp_vars):
+        self.c = conf
+        self.model=model
+        self.inp_shape=inp_shape
+        self.sess=sess
+        self.inp_vars = inp_vars
+
+        self.nactions = {True:3,False:4}[self.c.ELIM_USELESS_ACTIONS]
+
+        ''' ------------ make variables ------------ '''
+        self.targ_var = tf.placeholder(tf.float32, [4])
+        self.pred_var = self.model # (just a copy)
+
+        self.loss_fn_updates = self._getLossFn(self.pred_var, self.targ_var)
+        self.loss_fn_fixed = self._getLossFn(self.pred_var, self.targ_var)
+        assert(type(self.c.LEARNING_RATE) == float)
+        if self.c.OPTIMIZER[0]=='adam':
+            self.optimizer = tf.train.AdamOptimizer(self.c.LEARNING_RATE,\
+                             epsilon = self.c.OPTIMIZER[1])
+        else: raise Exception("Optimizer support not yet implemented:",\
+                             self.c.OPTIMIZER)
+        self.updates = self.optimizer.minimize(self.loss_fn_updates)
+
+    def getQVals(self, state, agency_mode='NEURAL'):
+        if agency_mode=='NEURAL':
+            return self._forward_pass(state)
+        elif agency_mode=='RANDOM':
+            return {3: [3**-1, 3**-1, 0, 3**-1], \
+                    4: [0.25, 0.25, 0.25, 0.25]} [self.nactions]
+
+    def _getLossFn(self, prd, trg):
+        lf = self.c.LOSS_FUNCTION
+        if lf == 'square' or lf==None:
+            return tf.reduce_sum(tf.square( pred - targ ))
+        elif 'huber' in lf:
+            if len(lf)>5: max_grad = float(lf[5:])
+            else: max_grad = c.DEFAULT_HUBER_SATURATION
+
+            err = tf.reduce_sum(tf.abs( prd - trg ))
+            mg = tf.constant(max_grad, name='max_grad')
+            lin = mg*(err-.5*mg)
+            quad = .5*err*err
+            return tf.where(err < mg, quad, lin)
+        else: raise Exception("Loss function not acknowledged: "+str(lf))
+
+    def _forward_pass(self, state):
+        inp = tf.stack(obs['state'] for obs in state)
+        #Q_sa = self.sess.run(self.input
+
+#        for k,v in state[0].items():
+#            try: print (k, v.shape)
+#            except: print('DEFAULT', k,v)
+#
+##x.exp_env.state_input_shape()
+#        print(self.model)
+#        print(self.model.shape)
+#        print(len(state))
+#        print(state)
+#        help(state)
+        print(self.inp_vars.shape)
+        print(inp.shape)
+        print(self.model.shape)
+        Q_sa = self.sess.run(self.model, \
+                feed_dict = {self.inp_vars : inp});
+        return Q_sa
+
+
+
+
+
+
+
+
+def run_trial( c, net, envs, mode_te_tr):
+    """ 
+    Parameters
+    ----------
+    takes config instance, network container, environments, epoch number, 
+    test/train flag.
+    >> is epoch number needed? isnt that the point of this function?
+
+    Does
+    ----
+    implements reinforce algorithm as vanilla DQN (for now).
+    currently, *not* batch, for sake of time to implement.
+
+    Returns
+    -------
+    a well-organized struct (dict?) of results of this trial 
+
+    """        
+    _a, _e, _a_e = 0,1,0 # local flags
+
+    actions_taken = []
+    i = np.random.randint(envs[_a_e].n_train_states)
+    start_state = [envs[key].exp_env.train_states[i] for key in [_a,_e]]
+    obs_a = [start_state[_a]]; obs_e = [start_state[_e]] # observations
+
+    assert(mode_te_tr=='train', 'not impl yet stub in progress')
+    assert(start_state[_a]['startpos'] == start_state[_e]['startpos'])
+    assert(start_state[_a]['goalpos']  == start_state[_e]['goalpos'])
+
+    #for XX in [env_allo.exp_env.train_states, env_allo.exp_env.test_states]:
+
+    for itr in itertools.count(): # increment actions
+        if type(c.MAX_NUM_ACTIONS)==int and itr >= c.MAX_NUM_ACTIONS:
+            break
+        ''' ------------ boiler plate: start loop ------------ '''
+        Q0_s = net.getQVals(start_state)
+        
+
+        ''' ------------ boiler plate: end loop ------------ '''
+
+
+
+
+
+
+
+
+
+def new_run_exp_save( c, fout=sys.stdout, replay_buf=False ):
     """ new_run_exp_save: a new function that more directly
-        implements a two-headed network.
+         trains (and tests; todo) gould Gold experiments.
 
     Parameters
     ----------
@@ -159,6 +286,10 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     -------
     finished built model
     """        
+    #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  
+    ''' ------------ initial logging & printing ------------ '''
+
+    print("A new experiment is invoked. Info: first are parameter settings, ")
 
     try: assert(c.CENTRISM) in ['choose-mixed']
     except: raise Exception(c.CENTRISM+"centrism isn't supported! stub")
@@ -175,91 +306,87 @@ def new_run_exp_save( c, fout, replay_buf=False ):
     print('\n\n')
     sys.stdout.flush()
 
-    ''' tensorflow config -- needs spot check for option 'upgrades' '''
+    ''' ------------ (tensorflow) config ------------ '''
     cproto = tf.ConfigProto()
     cproto.log_device_placement = c._LOG_DEVICE_PLACEMENT
     cproto.inter_op_parallelism_threads = c._MAXNTHREADS
     cproto.intra_op_parallelism_threads = c._MAXNTHREADS
-    if c.MACHINE=='desktop':
+    if c.MACHINE=='desktop': 
         cproto.gpu_options.allow_growth = c._GPU_ALLOW_GROWTH
         cproto.gpu_options.per_process_memory_fraction = c._GPU_FRACTION
-    ''' end tensorflow config '''
 
     with tf.Session(config = cproto ) as sess:
         var_name_id = 1234
-        # ---- set environment ----
-        env_allo = PathEnv(c, ExpAPI(c.GAME_NAME, 'allocentric', card_or_rot = \
-                                                              c.ACTION_MODE)) 
-        env_ego  = PathEnv(c, ExpAPI(c.GAME_NAME, 'egocentric' , card_or_rot = \
-                                                              c.ACTION_MODE)) 
-#       in every iteration, there are env_allo and env_ego structures.
-        if c.NETWORK_STRUCTURE=='jjb-wide': # build three quasi-JJB model components
-            ash, esh = [x.exp_env.state_input_shape() for x in [env_allo, env_ego]]
 
-            model_ego  = mlp(c=c, inpt_shape=esh, itr=var_name_id, \
-                             vers = 'ego', hiddens = c.NET_EGO_LAYERS)
+        ''' ------------ set environment ------------ '''
 
-            model_allo = mlp(c=c, inpt_shape=ash, itr=var_name_id, \
-                             vers = 'allo', hiddens = c.NET_ALLO_LAYERS)
+        env_allo, env_ego = envs = [PathEnv(c, ExpAPI(c.GAME_NAME, \
+                        ctr+'centric', card_or_rot = c.ACTION_MODE)) \
+                        for ctr in ('allo','ego')]
+ 
+        ''' ------------ Build JJB model ------------ '''
 
-            assert(ash[0]==esh[0] and ash[1]==esh[1])
-            attn_shape = tuple([ash[0], ash[1], ash[2]+esh[2]])
-            model_attn = mlp(c=c, inpt_shape=attn_shape, osize=2, \
-                             itr=var_name_id, debug=True,\
-                             vers = 'attn', hiddens = c.NET_ATTN_LAYERS)
+        _ash, _esh = [x.exp_env.state_input_shape() for x in envs]
+        if not c.NETWORK_STRUCTURE=='jjb-wide': 
+            raise NotImplemented('jjb-wide is only implemented model')
 
-#       As implemented, attn interpreted as additive not proportional: 428
-            model = tf.add(\
-                    tf.multiply(model_attn[0], model_allo), \
-                    tf.multiply(model_attn[1], model_ego))
-        else: raise NotImplemented('jjb-wide is only implemented model')
-        
+        model_ego, inp_ego_var = mlp(c=c, inpt_shape=_esh, itr=var_name_id, \
+                         vers = 'ego', hiddens = c.NET_EGO_LAYERS)
+
+        model_allo, inp_allo_var = mlp(c=c, inpt_shape=_ash, itr=var_name_id, \
+                         vers = 'allo', hiddens = c.NET_ALLO_LAYERS)
+
+        assert(_ash[0]==_esh[0] and _ash[1]==_esh[1])
+        attn_shape = tuple([_ash[0], _ash[1], _ash[2]+_esh[2]])
+        model_attn, attn_var = mlp(c=c, inpt_shape=attn_shape, osize=2, \
+                         itr=var_name_id, debug=True,\
+                         vers = 'attn', hiddens = c.NET_ATTN_LAYERS)
+
+#       As implemented, attn is additive not proportional: see config settings.
+
+        assert(c.ATTENTION_MODE_TRAIN == 'smooth-zero-sum')
+        model = tf.add(\
+                tf.multiply(model_attn[0], model_allo), \
+                tf.multiply(model_attn[1], model_ego))
+        net = network_util(c, model, attn_shape, sess, \
+                    tf.stack([inp_ego_var, inp_allo_var], name='Input'))
+
         sess.run(tf.global_variables_initializer()) # after env init'ed
-
-        episode_rewards = [0]
-        testing_results = [0]
-        num_actions_taken = [0]
-        # 4/19/18: due to immense utility of reset-act-etc openai framework,
-        # initial thought says make it like that.
-        obs_e = env_ego.reset(t=0, curr=c.CURRICULUM, test_train='train')
-        obs_a = env_allo.reset(t=0, curr=c.CURRICULUM, test_train='train')
-
 
         if c.DEBUG:
             print(type(obs_e))
             print_state(obs_e)
             print_state(obs_a)
-        for XX in [env_ego.exp_env.test_states, env_ego.exp_env.train_states]:
-          for s in XX:
-#            err_delta = 2-s['startpos'][1]
-#            print(err_delta, s.keys())
-#            s['state'] = np.roll(s['state'], err_delta, axis=1)
-            print_state(s)
-            print('')
-          print('---------')
-        print('^ego, v allo')
-        for XX in [env_allo.exp_env.train_states, env_allo.exp_env.test_states]:
-          for s in XX:
-            print('')
-            print_state(s)
+            for XX in [ env_ego.exp_env.test_states, \
+                        env_ego.exp_env.train_states]:
+              for s in XX:
+                print_state(s)
+                print('')
+              print('---------')
+            print('^ego, v allo')
+            for XX in [env_allo.exp_env.train_states, env_allo.exp_env.test_states]:
+              for s in XX:
+                print('')
+                print_state(s)
 
-        mode_te_tr = 'train'
+        mode_te_tr = 'train' # for the moment
         test_t=train_t=0
-        is_solved=is_episode_completed=False
 
-        sys.exit()
-
-        for t in itertools.count():
+        for t in itertools.count(): # increment quasi-epochs
             if c.DONE_MODE == 'epochs' and t > c.DONE_EPOCHS:
                 break
+            # Future: here is a spot to put weight saving @ tensorflow.
+            # Future: here is a spot to adjust learning curriculum schedule.    
+            
             # Take action and update exploration to the newest value
             if mode_te_tr=='train': train_t += 1
             elif mode_te_tr=='test': test_t += 1
-# .... stub left off 428
-            if mode_te_tr=='train': 
-                action = act
-            elif mode_te_tr=='test': test_t += 1
 
+            ''' ------------ Run train ------------ '''
+
+            results = run_trial( c, net, envs, mode_te_tr)
+            
+            
         print('sanity: done')
 
 def new_launch_expt(config):
